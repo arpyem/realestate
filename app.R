@@ -2,7 +2,7 @@ library(shiny)
 library(shinyjs)
 library(tidyverse)
 
-codeVersion = "2020.01.05.1"
+codeVersion = "2020.01.05.2"
 
 # ?s
 # property tax?? in inputs no dependencies
