@@ -1,0 +1,132 @@
+:root {
+      fontSize: 11px;
+      --transition-time: .2s;
+      --item-color: #707070;
+      --item-active-color: #424242;
+      --item-active-bgcolor: #efefef;
+}
+
+body {
+      /*font-size: var(--fontSize);*/
+      font-size: 12px;
+}
+
+.mainContain {
+      margin: 15px 15px 60px 15px;
+}
+
+.form-control {
+      font-size: var(--fontSize);
+      height: 20px;
+      padding: 3px;
+      text-align: right;
+}
+
+.hlabel {
+   display: flex;
+   align-items: center;
+   justify-content: flex-end;
+   height: 20px;
+   margin-bottom: 15px;
+   padding-right: 5px;
+   font-weight: bold;
+}
+
+.labelUnit {
+   display: flex;
+   align-items: center;
+   height: 20px;
+   margin-bottom: 15px;
+   padding-right: 5px;
+   font-weight: bold;
+}
+
+.pair {
+   display: flex;
+   justify-content: space-between;
+}
+
+
+.card {
+      padding: 10px;
+      margin-bottom: 10px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.33);
+      transition: all .2s;
+}
+
+.dscGood {
+   background-color: #149c24;
+}
+
+.dscBad {
+   background-color: #b54c0b;
+}
+
+
+
+
+
+
+
+/* Custom CSS for Navbar menus */
+/* 2019-10-03 RPM */
+
+/* Navbar background */
+
+.navbar {
+  background-color: transparent;
+  border: none;
+  box-shadow: 0 1px 10px #999;
+  margin: 0 0 15px 0;
+  padding-top: 0;
+}
+
+
+/* Navbar title */
+
+.navbar .navbar-brand {
+  color: #707070;
+  transition: all var(--transition-time);
+}
+
+/* Navbar title on hover */
+
+.navbar .navbar-brand:hover {
+  color: #444444;
+  transition: all var(--transition-time);
+}
+
+
+/* Navbar item */
+
+.navbar .navbar-nav > li > a {
+      color: var(--item-color);
+      background-color: transparent;
+      border-radius: 100%;
+      font-size: 1.25em;
+      transition: all var(--transition-time);
+}
+
+/* Navbar item on hover */
+
+.navbar .navbar-nav > li > a:hover,
+.navbar .navbar-nav > li > a:focus {
+      color: var(--item-color);
+      background-color: var(--item-active-bgcolor);
+      border-radius: 0;
+}
+
+
+/* Navbar item when active */
+
+.navbar .navbar-nav > .active > a,
+.navbar .navbar-nav > .active > a:hover,
+.navbar .navbar-nav > .active > a:focus {
+      color: var(--item-active-color);
+      background-color: var(--item-active-bgcolor);
+      border-radius: 0;
+}
+
+
+
+
