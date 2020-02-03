@@ -36,17 +36,6 @@ reducePrincipal = function(principal, rate, term = 30, period = 12, currentYear 
 }
 
 
-getAnalyses = function(path = "data") {
-   list.files(path) %>%
-      map_df(function(x) {
-         m = readRDS(file = file.path(path, x))
-         m$analysisId = as.character(m$analysisId)
-         m
-      }) %>%
-      arrange(desc(analysisId))
-}
-
-
 
 
 
@@ -59,7 +48,7 @@ ui = div(
    navbarPage(
       title = "Real Estate Analysis", 
       id = "tab",
-      # selected = "calc",
+      selected = "calc",
       tabPanel(
          title = "",
          value = "inputs",
@@ -73,26 +62,13 @@ ui = div(
             ),
             # inputUI,
             div(
-               uiOutput(outputId = "ui_inputs"),
-               style = "margin-bottom: 10px"
+               uiOutput(outputId = "ui_inputs")
             ),
-            div(
+            hidden(div(
                id = "div_saveInputs",
-               div(
-                  div(
-                     uiOutput(outputId = "ui_analyses"),
-                     div(actionButton(inputId = "b_editAnalysis", label = "", icon = icon("edit"), class = "btn-info"), style = "margin-left: 3px; padding-top: 22px"),
-                     style = "display: flex; justify-content: center"
-                  ),
-                  div(
-                     div(textInput(inputId = "analysisName", label = NULL, width = "150", placeholder = "Save new analysis")),
-                     div(actionButton(inputId = "b_saveInputs", label = "", icon = icon("plus"), class = "btn-success"), style = "margin-left: 3px"),
-                     style = "display: flex; justify-content: center"
-                  ),
-                  style = ""
-               ),
+               actionButton(inputId = "b_saveInputs", label = "Save inputs", width = 200, class = "btn-success"),
                style = "display: flex; justify-content: center; margin-top: 10px"
-            )
+            ))
          )
       ),
       tabPanel(
@@ -134,7 +110,7 @@ ui = div(
          )
       )
    ),
-   style = "margin: 0 0 120px 0"
+   style = "margin: 0 0 45px 0"
 ) 
 
 
@@ -144,38 +120,21 @@ server = function(input, output, session) {
    
    output$test = renderPrint({
       req(NULL)
-      str(rv$data)
+      # identical(lInputs(), l)
+      # dfCalc()
    })
    
-   
-   # Reactive values -------------------------
    
    rv = reactiveValues(
-      l = readRDS(file = "inputDefaults.RData"),
-      data = getAnalyses()
+      l = readRDS(file = "inputDefaults.RData")
    )
-   
-   
-   # Analyses selection ----------------------
-   
-   output$ui_analyses = renderUI({
-      req(rv$data)
-      choices = rv$data$analysisId %>% set_names(rv$data$analysisName)
-      selectInput(inputId = "analysisSelected", label = "Select a saved analysis", choices = choices, width = 150)
-   })
-   
    
    
    # Inputs ----------------------------------------------------------------------
    
-   
-   
-   
-   
    output$ui_inputs = renderUI({
-      req(rv$data, input$analysisSelected)
-      l = rv$data %>%
-         filter(analysisId == input$analysisSelected)
+      req(rv$l)
+      l = rv$l
       
       div(
          
@@ -570,91 +529,24 @@ server = function(input, output, session) {
       )
    })
    
-   # observeEvent(lInputs(), {
-   #    if (identical(x = lInputs(), y = l)) 
-   #       hide(id = "div_saveInputs", anim = TRUE) 
-   #    else 
-   #       shinyjs::show(id = "div_saveInputs",anim = TRUE)
-   # })
-   
-   
-   # Save a new analysis
+   observeEvent(lInputs(), {
+      if (identical(x = lInputs(), y = l)) 
+         hide(id = "div_saveInputs", anim = TRUE) 
+      else 
+         shinyjs::show(id = "div_saveInputs",anim = TRUE)
+   })
    
    observeEvent(input$b_saveInputs, {
-      withProgress({
-         d = c(
-            analysisId = max(as.numeric(rv$data$analysisId)) + 1,
-            analysisDate = Sys.time(),
-            analysisName = input$analysisName,
-            lInputs()
-         )
-         
-         if (trimws(d$analysisName) == "" | is.na(d$analysisName)) {
-            d$analysisName = paste0("analysis", d$analysisId)
-         }
-         
-         path = paste0("data/analysis", d$analysisId, ".RData")
-         saveRDS(object = d, file = path)
-         rv$data = getAnalyses()
-         
-         updateTextInput(session = session, inputId = "analysisName", value = "")
-      }, message = "Saving new analysis")
+      saveRDS(object = lInputs(), file = "inputDefaults.RData")
+      l <<- readRDS(file = "inputDefaults.RData")
    })
-   
-   
-   # Edit existing analysis ----------------------------
-   
-   observeEvent(input$b_editAnalysis, {
-      withProgress({
-         d = c(
-            analysisId = as.character(input$analysisSelected),
-            analysisDate = Sys.time(),
-            analysisName = rv$data$analysisName[rv$data$analysisId == input$analysisSelected],
-            lInputs()
-         )
-         
-         if (trimws(d$analysisName) == "" | is.na(d$analysisName)) {
-            d$analysisName = paste0("analysis", d$analysisId)
-         }
-         
-         path = paste0("data/analysis", as.character(input$analysisSelected), ".RData")
-         saveRDS(object = d, file = path)
-         rv$data = getAnalyses()
-         
-         updateTextInput(session = session, inputId = "analysisName", value = "")
-         updateSelectInput(session = session, inputId = "analysisSelected", selected = d$analysisId)
-      }, message = "Editing analysis")
-   })
-   
-   
-   # # Delete existing analysis ----------------------------
-   # 
-   # observeEvent(input$b_editAnalysis, {
-   #    d = c(
-   #       analysisId = as.character(input$analysisSelected),
-   #       analysisDate = Sys.time(),
-   #       analysisName = input$analysisName,
-   #       lInputs()
-   #    )
-   #    
-   #    if (trimws(d$analysisName) == "" | is.na(d$analysisName)) {
-   #       d$analysisName = paste0("analysis", d$analysisId)
-   #    }
-   #    
-   #    path = paste0("data/analysis", as.character(input$analysisSelected), ".RData")
-   #    saveRDS(object = d, file = path)
-   #    rv$data = getAnalyses()
-   #    
-   #    updateSelectInput(session = session, inputId = "analysisSelected", selected = d$analysisId)
-   # })
    
    
    # Calculations -------------------------------------------------------------------
    
    calcMatrix = reactive({
-      req(lInputs())
       i = lInputs()
-      i[is.na(i)] = 0 # set blanks to zero
+      i[is.na(i)] = 0
       
       withProgress({
          0:(input$nYears - 1) %>%
