@@ -4,6 +4,12 @@ library(tidyverse)
 
 codeVersion = "2020.02.03.1"
 
+# monitor usage
+
+usage = readRDS('usage')
+usage = c(Sys.time(), usage)
+saveRDS(usage, 'usage')
+
 # ?s
 # property tax?? in inputs no dependencies
 # capital gain tax using blank cells
@@ -885,43 +891,39 @@ server = function(input, output, session) {
    })
    
    
+   # Preview ----
    output$ui_preview = renderUI({
       dsc1 = clean(calcMatrix()[[1]][["debtServiceCoverage"]][["dsc"]], digits = 3)
       noi = clean(calcMatrix()[[1]][["cashFlow"]][["netOperatingIncome"]], prefix = "$")
       pni = clean(calcMatrix()[[1]][["cashFlow"]][["principalInterest"]], prefix = "$")
       cf = clean(calcMatrix()[[1]][["cashFlow"]][["cashFlow"]], prefix = "$")
       er = clean(calcMatrix()[[1]][["equityReturn"]][["initEquityReturnRatio"]] * 100, digits = 3, suffix = "%")
-      cclass = if (dsc1 >= input$dscCutoff) "dscGood card" else "dscBad card"
+      cclass = if (dsc1 >= input$dscCutoff) "dscGood card y1-preview" else "dscBad card y1-preview"
       div(
          div(
             div("DSCR", style = "color: #e6e6e6"),
             div(dsc1, style = "font-size: 2em; font-weight: bold; color: white"),
-            class = cclass,
-            style = "text-align: center; margin: 0 5px 0 5px; width: 125px"
+            class = cclass
          ),
          div(
             div("NOI", style = "color: #b0b0b0"),
             div(noi, style = "font-size: 2em; font-weight: bold"),
-            class = "card",
-            style = "text-align: center; margin: 0 5px 0 5px; width: 125px"
+            class = "card y1-preview"
          ),
          div(
             div("P&I", style = "color: #b0b0b0"),
             div(pni, style = "font-size: 2em; font-weight: bold"),
-            class = "card",
-            style = "text-align: center; margin: 0 5px 0 5px; width: 125px"
+            class = "card y1-preview"
          ),
          div(
             div("CASH FLOW", style = "color: #b0b0b0"),
             div(cf, style = "font-size: 2em; font-weight: bold"),
-            class = "card",
-            style = "text-align: center; margin: 0 5px 0 5px; width: 125px"
+            class = "card y1-preview"
          ),
          div(
             div("EQUITY RETURN", style = "color: #b0b0b0"),
             div(er, style = "font-size: 2em; font-weight: bold"),
-            class = "card",
-            style = "text-align: center; margin: 0 5px 0 5px; width: 125px"
+            class = "card y1-preview"
          ),
          style = "display: flex; justify-content: center"
       )

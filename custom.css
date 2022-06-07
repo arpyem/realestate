@@ -7,8 +7,7 @@
 }
 
 body {
-      /*font-size: var(--fontSize);*/
-      font-size: 12px;
+      font-size: 16px;
 }
 
 .mainContain {
@@ -59,6 +58,12 @@ body {
       margin-bottom: 10px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.33);
       transition: all .2s;
+}
+
+.y1-preview {
+   width: 10em;
+   text-align: center;
+   margin: 0 5px 0 5px;
 }
 
 .dscGood {
