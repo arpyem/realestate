@@ -2,13 +2,15 @@ library(shiny)
 library(shinyjs)
 library(tidyverse)
 
-codeVersion = "2020.02.03.1"
+codeVersion = "2.0.1"
+
+source("setup.R")
 
 # monitor usage
 
-usage = readRDS('usage')
-usage = c(Sys.time(), usage)
-saveRDS(usage, 'usage')
+# usage = readRDS('usage')
+# usage = c(Sys.time(), usage)
+# saveRDS(usage, 'usage')
 
 # ?s
 # property tax?? in inputs no dependencies
@@ -20,40 +22,6 @@ saveRDS(usage, 'usage')
 # plot ranges
 
 # source("inputs.R")
-
-clean = function(x, digits = 0, prefix = "", suffix = "") {
-   paste0(prefix, format(x, digits = digits, big.mark = ",", big.interval = 3, scientific = FALSE), suffix)
-}
-
-pmt = function(principal, rate, term = 30, period = 12) {
-   rateP = rate / period
-   n = term * period
-   principal * rateP / (1 - (1 + rateP) ^ -n)
-}
-
-
-reducePrincipal = function(principal, rate, term = 30, period = 12, currentYear = 1) {
-   rateP = rate / period
-   v1 = principal * (1 + rateP) ^ (period * currentYear)
-   v2 = (1 + rateP) ^ (period * currentYear) - 1
-   mthly = pmt(principal = principal, rate = rate, term = term, period = period)
-   v3 = mthly / rateP * v2
-   v1 - v3
-}
-
-
-getAnalyses = function(path = "data") {
-   list.files(path) %>%
-      map_df(function(x) {
-         m = readRDS(file = file.path(path, x))
-         m$analysisId = as.character(m$analysisId)
-         m
-      }) %>%
-      arrange(desc(analysisId))
-}
-
-
-
 
 
 
@@ -172,13 +140,430 @@ server = function(input, output, session) {
    
    
    
-   # Inputs ----------------------------------------------------------------------
+   # Inputs -----------------------------------------------------------------------------------------------------------------
+   
+   output$ui_inputs <- renderUI({
+      req(rv$data, input$analysisSelected)
+      
+      l <- filter(rv$data, analysisId == input$analysisSelected)
+      
+      div(
+         
+         ## General ----
+         div(
+            
+            hinput(
+               label = "Purchase price",
+               input = numericInput(
+                  inputId = "purchasePrice", 
+                  label = NULL,
+                  value = l$purchasePrice, 
+                  min = 0, 
+                  step = 100000, 
+                  width = "100%"
+               ),
+               unit = "$"
+            ),
+            
+            hinput(
+               label = "Down payment",
+               input = numericInput(
+                  inputId = "downPayment", 
+                  label = NULL,
+                  value = l$downPayment, 
+                  min = 0, 
+                  step = 100000, 
+                  width = "100%"
+               ),
+               unit = "%"
+            ),
+            
+            hinput(
+               label = "Interest rate on loan",
+               input = numericInput(
+                  inputId = "interestRate", 
+                  label = NULL,
+                  value = l$interestRate, 
+                  min = 0, 
+                  max = 100,
+                  step = 0.25, 
+                  width = "100%"
+               ),
+               unit = "%"
+            ),
+            
+            hinput(
+               label = "Term of loan",
+               input = numericInput(
+                  inputId = "loanTerm", 
+                  label = NULL,
+                  value = l$loanTerm, 
+                  min = 1, 
+                  step = 1, 
+                  width = "100%"
+               ),
+               unit = "yrs"
+            ),
+            
+            hinput(
+               label = "Improvement ratio",
+               input = numericInput(
+                  inputId = "improvementRatio", 
+                  label = NULL,
+                  value = l$improvementRatio, 
+                  min = 0, 
+                  max = 100,
+                  step = 1, 
+                  width = "100%"
+               ),
+               unit = "%"
+            ),
+            
+            hinput(
+               label = "Years of depreciation",
+               input = numericInput(
+                  inputId = "yearsDepreciation", 
+                  label = NULL,
+                  value = l$yearsDepreciation, 
+                  min = 0, 
+                  step = 1, 
+                  width = "100%"
+               ),
+               unit = "yrs"
+            ),
+            
+            hinput(
+               label = "Annual scheduled gross income",
+               input = numericInput(
+                  inputId = "grossIncomeExpected", 
+                  label = NULL,
+                  value = l$grossIncomeExpected, 
+                  min = 0, 
+                  step = 10000, 
+                  width = "100%"
+               ),
+               unit = "$"
+            ),
+            
+            hinput(
+               label = "Vacancy/collection losses",
+               input = numericInput(
+                  inputId = "losses", 
+                  label = NULL,
+                  value = l$losses, 
+                  min = 0, 
+                  step = 1, 
+                  width = "100%"
+               ),
+               unit = "%"
+            )
+            
+         ), 
+         
+         
+         # Operating Expenses ----
+         
+         div(
+            
+            hinput(
+               label = "Property taxes",
+               input = numericInput(
+                  inputId = "propertyTaxes", 
+                  label = NULL, 
+                  value = l$propertyTaxes, 
+                  min = 0, 
+                  step = 10000, 
+                  width = "100%"
+               ),
+               unit = "$"
+            ),
+            
+            hinput(
+               label = "Insurance",
+               input = numericInput(
+                  inputId = "insurance", 
+                  label = NULL, 
+                  value = l$insurance, 
+                  min = 0, 
+                  step = 100, 
+                  width = "100%"
+               ),
+               unit = "$"
+            ),
+            
+            hinput(
+               label = "Electricity",
+               input = numericInput(
+                  inputId = "electricity", 
+                  label = NULL, 
+                  value = l$electricity, 
+                  min = 0, 
+                  step = 100, 
+                  width = "100%"
+               ),
+               unit = "$"
+            ),
+            
+            hinput(
+               label = "Gas",
+               input = numericInput(
+                  inputId = "gas", 
+                  label = NULL, 
+                  value = l$gas, 
+                  min = 0, 
+                  step = 100, 
+                  width = "100%"
+               ),
+               unit = "$"
+            ),
+            
+            hinput(
+               label = "Oil",
+               input = numericInput(
+                  inputId = "oil", 
+                  label = NULL, 
+                  value = l$oil, 
+                  min = 0, 
+                  step = 100, 
+                  width = "100%"
+               ),
+               unit = "$"
+            ),
+            
+            hinput(
+               label = "Water",
+               input = numericInput(
+                  inputId = "water", 
+                  label = NULL, 
+                  value = l$water, 
+                  min = 0, 
+                  step = 100, 
+                  width = "100%"
+               ),
+               unit = "$"
+            ),
+            
+            hinput(
+               label = "Trash",
+               input = numericInput(
+                  inputId = "trash", 
+                  label = NULL, 
+                  value = l$trash, 
+                  min = 0, 
+                  step = 100, 
+                  width = "100%"
+               ),
+               unit = "$"
+            ),
+            
+            hinput(
+               label = "Management",
+               input = numericInput(
+                  inputId = "management", 
+                  label = NULL, 
+                  value = l$management, 
+                  min = 0, 
+                  max = 100,
+                  step = 1, 
+                  width = "100%"
+               ),
+               unit = "$"
+            ),
+            
+            hinput(
+               label = "Maintenance",
+               input = numericInput(
+                  inputId = "maintenance", 
+                  label = NULL, 
+                  value = l$maintenance, 
+                  min = 0, 
+                  max = 100,
+                  step = 1, 
+                  width = "100%"
+               ),
+               unit = "$"
+            ),
+            
+            hinput(
+               label = "Advertising",
+               input = numericInput(
+                  inputId = "advertising", 
+                  label = NULL, 
+                  value = l$advertising, 
+                  min = 0, 
+                  step = 100, 
+                  width = "100%"
+               ),
+               unit = "$"
+            ),
+            
+            hinput(
+               label = "Telephone",
+               input = numericInput(
+                  inputId = "telephone", 
+                  label = NULL, 
+                  value = l$telephone, 
+                  min = 0, 
+                  step = 100, 
+                  width = "100%"
+               ),
+               unit = "$"
+            ),
+            
+            hinput(
+               label = "Other",
+               input = numericInput(
+                  inputId = "other", 
+                  label = NULL, 
+                  value = l$other, 
+                  min = 0, 
+                  step = 100, 
+                  width = "100%"
+               ),
+               unit = "$"
+            )
+            
+         ),
+         
+         # Annual Adjustments ----
+         div(
+            
+            hinput(
+               label = "Annual income increase",
+               input = numericInput(
+                  inputId = "incomeIncrease", 
+                  label = NULL, 
+                  value = l$incomeIncrease, 
+                  min = 0, 
+                  max = 100,
+                  step = 1, 
+                  width = "100%"
+               ),
+               unit = "%"
+            ),
+            
+            hinput(
+               label = "Annual expense increase",
+               input = numericInput(
+                  inputId = "expenseIncrease", 
+                  label = NULL, 
+                  value = l$expenseIncrease, 
+                  min = 0, 
+                  max = 100,
+                  step = 1, 
+                  width = "100%"
+               ),
+               unit = "%"
+            ),
+            
+            hinput(
+               label = "Annual appreciation rate",
+               input = numericInput(
+                  inputId = "appreciationRate", 
+                  label = NULL, 
+                  value = l$appreciationRate, 
+                  min = 0, 
+                  max = 100,
+                  step = 1, 
+                  width = "100%"
+               ),
+               unit = "%"
+            ),
+            
+            hinput(
+               label = "Investor tax bracket",
+               input = numericInput(
+                  inputId = "investorTax", 
+                  label = NULL, 
+                  value = l$investorTax, 
+                  min = 0, 
+                  max = 100,
+                  step = 1, 
+                  width = "100%"
+               ),
+               unit = "%"
+            ),
+            
+            hinput(
+               label = "Capital gain tax rate",
+               input = numericInput(
+                  inputId = "capitalGain", 
+                  label = NULL, 
+                  value = l$capitalGain, 
+                  min = 0, 
+                  max = 100,
+                  step = 1, 
+                  width = "100%"
+               ),
+               unit = "%"
+            ),
+            
+            hinput(
+               label = "CGT Recaptured Depreciation Rate",
+               input = numericInput(
+                  inputId = "cgtRecapturedDep", 
+                  label = NULL, 
+                  value = 20, 
+                  min = 0, 
+                  max = 100,
+                  step = 1, 
+                  width = "100%"
+               ),
+               unit = "%"
+            ),
+            
+            hinput(
+               label = "Expected capital improvement",
+               input = numericInput(
+                  inputId = "capitalImprovements", 
+                  label = NULL, 
+                  value = l$capitalImprovements, 
+                  min = 0, 
+                  step = 1000, 
+                  width = "100%"
+               ),
+               unit = "%"
+            ),
+            
+            hinput(
+               label = "Approximate buying costs",
+               input = numericInput(
+                  inputId = "buyingCosts", 
+                  label = NULL, 
+                  value = l$buyingCosts, 
+                  min = 0, 
+                  max = 100,
+                  step = 1, 
+                  width = "100%"
+               ),
+               unit = "%"
+            ),
+            
+            hinput(
+               label = "Approximate selling costs",
+               input = numericInput(
+                  inputId = "salesCosts", 
+                  label = NULL, 
+                  value = l$salesCosts, 
+                  min = 0, 
+                  max = 100,
+                  step = 1, 
+                  width = "100%"
+               ),
+               unit = "%"
+            )
+            
+         ),
+         
+         style = "display: flex; justify-content: center"
+         
+      ) # end Inputs
+      
+   })
    
    
    
-   
-   
-   output$ui_inputs = renderUI({
+   output$ui_inputs2 = renderUI({
       req(rv$data, input$analysisSelected)
       l = rv$data %>%
          filter(analysisId == input$analysisSelected)
@@ -279,7 +664,7 @@ server = function(input, output, session) {
                div("%", class = "labelUnit"),
                style = "margin-left: 3px"
             ),
-            style = "display: flex"
+            style = "display: flex; flex-wrap: wrap"
          ),
          
          # Operating Expenses ----------------------------------------------------------------
@@ -691,17 +1076,17 @@ server = function(input, output, session) {
                other = i$other * expenseFactor
                operatingExpenses = sum(
                   propertyTaxes,  
-                     insurance,  
-                     electricity,  
-                     gas, 
-                     oil, 
-                     water, 
-                     trash, 
-                     management, 
-                     maintenance, 
-                     advertising, 
-                     telephone, 
-                     other,
+                  insurance,  
+                  electricity,  
+                  gas, 
+                  oil, 
+                  water, 
+                  trash, 
+                  management, 
+                  maintenance, 
+                  advertising, 
+                  telephone, 
+                  other,
                   na.rm = TRUE
                ) 
                
@@ -1430,10 +1815,10 @@ server = function(input, output, session) {
          style = "margin-bottom: 15px"
       )
    })
-
    
    
-      
+   
+   
 }
 
 shinyApp(ui = ui, server = server)

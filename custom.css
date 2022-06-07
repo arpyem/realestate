@@ -1,13 +1,7 @@
-:root {
-      fontSize: 11px;
-      --transition-time: .2s;
-      --item-color: #707070;
-      --item-active-color: #424242;
-      --item-active-bgcolor: #efefef;
-}
 
 body {
       font-size: 16px;
+      background-color: #ededed;
 }
 
 .mainContain {
@@ -15,11 +9,45 @@ body {
 }
 
 .form-control {
-      font-size: var(--fontSize);
-      height: 20px;
+      font-size: 1em;
+      height: 1.5em;
       padding: 3px;
       text-align: right;
 }
+
+
+
+/* Inputs */
+
+.hinput {
+   font-size: 1em;
+   display: flex;
+   justify-content: right;
+   align-items: center;
+   margin: 5px;
+}
+
+.hinput-label {
+   font-weight: 700;
+   text-align: right;
+}
+
+.hinput-input {
+   margin: 5px;
+   width: 8em;
+}
+
+.hinput-input .form-group {
+   margin: 0;
+}
+
+.hinput-unit {
+   font-weight: 700;
+   text-align: left;
+   width: 2em;
+}
+
+
 
 #analysisName {
    font-size: 14px;
@@ -54,10 +82,11 @@ body {
 
 
 .card {
-      padding: 10px;
-      margin-bottom: 10px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.33);
-      transition: all .2s;
+   background-color: white;
+   padding: 10px;
+   margin-bottom: 10px;
+   box-shadow: 0 2px 4px rgba(0,0,0,0.33);
+   transition: all .2s;
 }
 
 .y1-preview {
@@ -86,46 +115,47 @@ body {
 /* Navbar background */
 
 .navbar {
-  background-color: transparent;
-  border: none;
-  box-shadow: 0 1px 10px #999;
-  margin: 0 0 15px 0;
-  padding-top: 0;
+   background-color: white;
+   border: none;
+   box-shadow: 0 1px 10px #999;
+   margin: 0 0 15px 0;
+   padding-top: 0;
 }
 
 
 /* Navbar title */
 
 .navbar .navbar-brand {
-  color: #707070;
-  transition: all var(--transition-time);
+   color: #707070;
+   background-color: white;
+   transition: all 0.2s ease-in-out;
 }
 
 /* Navbar title on hover */
 
 .navbar .navbar-brand:hover {
-  color: #444444;
-  transition: all var(--transition-time);
+   color: #444444;
+   transition: all 0.2s ease-in-out;
 }
 
 
 /* Navbar item */
 
 .navbar .navbar-nav > li > a {
-      color: var(--item-color);
-      background-color: transparent;
-      border-radius: 100%;
-      font-size: 1.25em;
-      transition: all var(--transition-time);
+   color: #707070;
+   background-color: white;
+   border-radius: 100%;
+   font-size: 1.25em;
+   transition: all 0.2s ease-in-out;
 }
 
 /* Navbar item on hover */
 
 .navbar .navbar-nav > li > a:hover,
 .navbar .navbar-nav > li > a:focus {
-      color: var(--item-color);
-      background-color: var(--item-active-bgcolor);
-      border-radius: 0;
+   color: #707070;
+   background-color: #efefef;
+   border-radius: 0;
 }
 
 
@@ -134,9 +164,9 @@ body {
 .navbar .navbar-nav > .active > a,
 .navbar .navbar-nav > .active > a:hover,
 .navbar .navbar-nav > .active > a:focus {
-      color: var(--item-active-color);
-      background-color: var(--item-active-bgcolor);
-      border-radius: 0;
+   color: #424242;
+   background-color: #efefef;
+   border-radius: 0;
 }
 
 
