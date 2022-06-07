@@ -8,19 +8,9 @@ library(DBI)
 library(jsonlite)
 
 
-
-# TODO
-# 
-
-
-# Python
-
-use_condaenv("/home/arpyem/anaconda3/envs/d2/bin/python")
-
-
-# Setup
-
-source("setup.R")
+codeVersion = 1.3 # 2020-05-24
+use_condaenv("/home/arpyem/anaconda3/envs/d2/bin/python") # Python venv
+source("setup.R") # Python set up and R functions
 
 
 # UI
@@ -34,9 +24,9 @@ ui = fluidPage(
          id = "div_settings",
          # div(textInput(inputId = "clanId", label = "Clan ID", value = "3130534", width = "100%"), style = "width: 125px; margin-right: 15px"),
          div(textInput(inputId = "clanName", label = "Clan Name", value = "Mythical Outlaws", width = "100%"), style = "width: 250px; margin-right: 15px"),
-         div(actionButton(inputId = "b_clanName", label = "Search clan", width = "100%"), style = "width: 125px; padding-top: 26px; margin-right: 15px"),
+         div(actionButton(inputId = "b_clanName", label = "Search clan", width = "100%"), style = "width: 125px; padding-top: 24px; margin-right: 15px"),
          div(numericInput(inputId = "nActivities", label = "Number of activities", value = 25, min = 1, max = 250, step = 1, width = "100%"), style = "width: 150px; margin-right: 15px"),
-         div(selectInput(inputId = "activityMode", label = "Activity modes", choices = c("All Crucible" = 5, "Survival" = 37), selected = 5, width = "100%"), style = "width: 150px; margin-right: 15px"),
+         div(selectInput(inputId = "activityMode", label = "Activity modes", choices = c("All Crucible" = 5, "Survival" = 37, "Trials" = 84), selected = 84, width = "100%"), style = "width: 150px; margin-right: 15px"),
          div(uiOutput(outputId = "ui_member"), style = "width: 250px; margin-right: 15px"),
          div(checkboxInput(inputId = "getGlory", label = "Show Glory", value = TRUE, width = "100%"), style = "width: 100px; margin-right: 15px; align-self: center"),
          # div(
@@ -93,7 +83,6 @@ server = function(input, output, session) {
       pgcrMember = list(), # Destiny user info for the selected player in the PGCR
       pgcrMemberStats = list(), # Account stats for the selected player in the PGCR
       pgcrMember_showing = list(), # List of players with account stats currently shown (to prevent duplicates)
-      savedPGCRs = readRDS(file = "savedPGCRs.RData"),
       Message = ""
    )
    
@@ -265,9 +254,27 @@ server = function(input, output, session) {
             map(function(x) {
                activity = activities[x, ]
                onclick(id = as.character(activity$instanceId), expr = {rv$instanceId = activity$instanceId}) # set instanceId
-               activityInfo = DestinyActivityDefinition[[as.character(activity$referenceId)]]
-               activityDefinition = DestinyActivityDefinition[[as.character(activity$directorActivityHash)]]
-               activityModeInfo = DestinyActivityModeDefinition[[as.character(activityInfo$directActivityModeHash)]]
+               
+               tryCatch(
+                  expr = {
+                     activityInfo = manifest$DestinyActivityDefinition[[as.character(activity$referenceId)]]
+                     activityDefinition = manifest$DestinyActivityDefinition[[as.character(activity$directorActivityHash)]]
+                     activityModeInfo = manifest$DestinyActivityModeDefinition[[as.character(activityInfo$directActivityModeHash)]]
+                  },
+                  error = function(e) {
+                     print(activity)    
+                     # instance 6528329533
+                     # reference 750001803
+                     # directorActivity 1166905690
+                     missingDefinition = ! as.character(activity$directorActivityHash) %in% names(DestinyActivityDefinition)
+                     missingModeInfo = ! as.character(activityInfo$directActivityModeHash) %in% names(DestinyActivityModeDefinition)
+                     if (missingDefinition | missingModeInfo) {
+                        stop('update manifest (manually because i am too lazy to automate it)')
+                     } else {
+                        stop(e)
+                     }
+                  }
+               )
 
                style = if (activity$standing == "Victory" | activity$standing == 1) {
                   "border-left: 4px solid var(--win); padding-left: 10px"
@@ -377,10 +384,9 @@ server = function(input, output, session) {
          
          # archive pgcrs
          
-         if (! rv$instanceId %in% rv$savedPGCRs) { # & "4611686018475738587" %in% players$membershipId) {
+         savedPGCRs = gsub(pattern = ".RData", replacement = "", x = list.files("PGCRs"), fixed = TRUE)
+         if (! rv$instanceId %in% savedPGCRs) { # & "4611686018475738587" %in% players$membershipId) {
             saveRDS(object = rv$pgcr, file = file.path("PGCRs", paste0(rv$instanceId, ".RData")))
-            saveRDS(object = c(rv$instanceId, savedPGCRs), file = "savedPGCRs.RData")
-            rv$savedPGCRs = readRDS(file = "savedPGCRs.RData")
             message("saved PGCR ", rv$instanceId)
          }
          
@@ -435,7 +441,7 @@ server = function(input, output, session) {
                arrange(-as.numeric(kills))
             
             avgGlory = if (input$getGlory) {
-               m$glory %>% as.numeric %>% mean(na.rm = TRUE) %>% format(digits = 0, big.mark = ",")
+               m$glory %>% as.numeric %>% mean(na.rm = TRUE) %>% na.omit %>% format(digits = 0, big.mark = ",")
             } else {
                "-"
             }
