@@ -4,8 +4,12 @@ body {
       background-color: #ededed;
 }
 
-.mainContain {
-      margin: 15px 15px 60px 15px;
+.container-fluid {
+    margin: 15px 15px 60px 15px;
+}
+
+nav .container-fluid {
+    margin: 0;
 }
 
 .form-control {
@@ -13,6 +17,10 @@ body {
       height: 1.5em;
       padding: 3px;
       text-align: right;
+}
+
+.modal-lg {
+    width: fit-content;
 }
 
 
@@ -47,6 +55,37 @@ body {
    width: 2em;
 }
 
+
+.analysis-container {
+    max-height: 600px;
+    overflow-y: scroll;
+    margin: 0 5px 5px 5px;
+}
+
+.analysis-headers {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 5px;
+    color: gray;
+    border-bottom: 1px solid #ededed;
+}
+
+
+.analysis-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 5px;
+    border-bottom: 1px solid #ededed;
+    background-color: transparent;
+    transition: background-color .2s ease-in-out;
+}
+
+.analysis-row:hover {
+    background-color: #ededed;
+    transition: background-color .2s ease-in-out;
+}
 
 
 #analysisName {
