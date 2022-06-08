@@ -21,12 +21,17 @@ reducePrincipal = function(principal, rate, term = 30, period = 12, currentYear 
 
 getAnalyses = function(path = "data") {
     list.files(path) %>%
-        map_df(function(x) {
+        map(function(x) {
             m = readRDS(file = file.path(path, x))
-            m$analysisId = as.character(m$analysisId)
+            m$analysisId <- as.character(m$analysisId)
+            m$analysisDate <- as_datetime(m$analysisDate, tz = "EST")
+            input_names <- names(m)[!names(m) %in% c("analysisId", "analysisName", "analysisDate")]
+            for (n in input_names) {
+                m[[n]] <- as.numeric(m[[n]])
+            }
             m
         }) %>% 
-        mutate(analysisDate = as_datetime(analysisDate, tz = "EST")) %>% 
+        bind_rows() %>%
         arrange(desc(analysisDate))
 }
 
