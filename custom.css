@@ -19,6 +19,11 @@ nav .container-fluid {
       text-align: right;
 }
 
+.form-group {
+    margin: 0;
+}
+
+
 .modal-lg {
     width: fit-content;
 }
@@ -56,9 +61,21 @@ nav .container-fluid {
 }
 
 
+.analysis-title {
+    font-size: 2em;
+    font-weight: 700;
+    text-align: center;
+}
+
+.analysis-subtitle {
+    font-size: 0.9em;
+    text-align: center;
+    color: #b0b0b0;
+    margin-bottom: 15px;
+}
+
+
 .analysis-container {
-    max-height: 600px;
-    overflow-y: scroll;
     margin: 0 5px 5px 5px;
 }
 
@@ -71,6 +88,10 @@ nav .container-fluid {
     border-bottom: 1px solid #ededed;
 }
 
+.analysis-rows {
+    max-height: 600px;
+    overflow-y: scroll;
+}
 
 .analysis-row {
     display: flex;
@@ -88,12 +109,42 @@ nav .container-fluid {
 }
 
 
-#analysisName {
-   font-size: 14px;
-   height: 34px;
-   padding: 5px;
-   text-align: left;
+.analysis-new {
+    display: flex; 
+    justify-content: center; 
+    align-items: center;
+    margin-bottom: 10px
 }
+
+.analysis-new .form-control {
+    font-size: inherit;
+    height: inherit;
+    text-align: inherit;
+}
+
+
+.analysis-table {
+    display: flex;
+    justify-content: center;
+    overflow-x: scroll;
+    margin-bottom: 15px;
+}
+
+.analysis-table-headers {
+    min-width: 20em;
+}
+
+.analysis-table-cells {
+    text-align: right; 
+    align-self: flex-end; 
+    min-width: 5em;
+}
+
+
+#analysisName {
+    height: 2.5em;
+}
+
 
 .hlabel {
    display: flex;

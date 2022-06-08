@@ -8,6 +8,13 @@ codeVersion = "2.0.1"
 
 source("setup.R")
 
+df <- getAnalyses()
+
+last_analysis <- readRDS("last_analysis.rds")
+if (!last_analysis %in% df$analysisId) {
+    last_analysis <- head(df$analysisId, 1)
+}
+
 # monitor usage
 
 # usage = readRDS('usage')
@@ -44,12 +51,18 @@ ui = div(
             icon = icon("calculator"),
             div(
                 verbatimTextOutput(outputId = "test"),
+                
+                # Analysis Title
+                uiOutput(outputId = "ui_title"),
+                
+                # Preview
                 div(
                     div("YEAR 1 PREVIEW", style = "color: #b0b0b0; margin-bottom: 5px; text-align: center"),
                     uiOutput(outputId = "ui_preview"),
                     style = "margin-bottom: 30px"
                 ),
-                # inputUI,
+                
+                # Inputs
                 div(
                     uiOutput(outputId = "ui_inputs"),
                     style = "margin-bottom: 10px"
@@ -57,7 +70,7 @@ ui = div(
             )
         ),
         
-        ## UI: Table ----
+        ## UI: Outputs ----
         tabPanel(
             title = "",
             value = "calc",
@@ -75,8 +88,7 @@ ui = div(
                 uiOutput(outputId = "ui_adjCostBasis"),
                 uiOutput(outputId = "ui_capitalGain"),
                 uiOutput(outputId = "ui_saleProceeds"),
-                uiOutput(outputId = "ui_dsc"),
-                style = "padding: 15px; overflow-x: auto"
+                uiOutput(outputId = "ui_dsc")
             )
         ),
         
@@ -88,7 +100,8 @@ ui = div(
             div(
                 numericInput(inputId = "nYears", label = "Years to calculate", value = 10, min = 1, step = 1, width = "100%"),
                 numericInput(inputId = "dscCutoff", label = "DSCR Benchmark", value = 1.15, min = 0, step = 0.1, width = "100%"),
-                style = "width: 125px"
+                numericInput(inputId = "font_size", label = "Font size", value = 18, min = 10, max = 20, step = 1, width = "100%"),
+                style = "width: 10em"
             ),
             div(
                 "VERSION: ",
@@ -118,136 +131,43 @@ server = function(input, output, session) {
     
     rv = reactiveValues(
         l = readRDS(file = "inputDefaults.RData"),
-        data = getAnalyses(),
+        data = df,
         trigger_analyses = NA,
-        selected_analysis = 9,
-        edit_analysis = NA
+        selected_analysis = last_analysis,
+        delete_analysis = NA
     )
     
     
     
-    # Analysis Library Interface ----
-    output$ui_analysis_library <- renderUI({
-        
-        headers <- div(
-            div("#", style = "width: 3em"),
-            div("NAME", style = "width: 15em"),
-            div("DATE", style = "width: 13em"),
-            div("DSC", style = "width: 5em"),
-            div("NOI", style = "width: 5em"),
-            div("PNI", style = "width: 5em"),
-            div("CF", style = "width: 5em"),
-            div("ER", style = "width: 5em"),
-            div("", style = "width: 3em"),
-            div("", style = "width: 3em"),
-            div("", style = "width: 3em"),
-            class = "analysis-headers"
-        )
-        
-        rows <- rv$data %>%
-            split(.$analysisId) %>%
-            map(function(x) {
-                
-                preview <- run_analysis(x)
-                
-                id_load <- paste0("a_load_", x$analysisId)
-                onclick(id_load, {rv$selected_analysis <- x$analysisId})
-                
-                id_edit <- paste0("a_edit_", x$analysisId)
-                onclick(id_edit, {rv$edit_analysis <- x$analysisId})
-                
-                id_delete <- paste0("a_delete_", x$analysisId)
-                onclick(id_delete, {rv$delete_analysis <- x$analysisId})
-                
-                div(
-                    div(
-                        x$analysisId, 
-                        style = "width: 3em"
-                    ),
-                    div(
-                        x$analysisName, 
-                        style = "width: 15em"
-                    ),
-                    div(
-                        format(x$analysisDate, "%b %d, %Y %R %Z"), 
-                        style = "width: 13em"
-                    ),
-                    div(
-                        round(preview$dsc, 2), 
-                        style = "width: 5em"
-                    ),
-                    div(
-                        dollar(preview$noi, accuracy = 1), 
-                        style = "width: 5em"
-                    ),
-                    div(
-                        dollar(preview$pni, accuracy = 1), 
-                        style = "width: 5em"
-                    ),
-                    div(
-                        dollar(preview$cash_flow, accuracy = 1), 
-                        style = "width: 5em"
-                    ),
-                    div(
-                        percent(preview$equity_return, accuracy = 0.1), 
-                        style = "width: 5em"
-                    ),
-                    div(
-                        actionButton(
-                            inputId = id_load, 
-                            label = NULL, 
-                            icon = icon("folder-open")
-                        ), 
-                        style = "width: 3em"
-                    ),
-                    div(
-                        actionButton(
-                            inputId = id_edit, 
-                            label = NULL, 
-                            icon = icon("pen")
-                        ),
-                        style = "width: 3em"
-                    ),
-                    div(
-                        actionButton(
-                            inputId = id_delete, 
-                            label = NULL, 
-                            icon = icon("times")
-                        ), 
-                        style = "width: 3em"
-                    ),
-                    class = "analysis-row"
-                )
-                
-            })
-        
-        div(
-            headers,
-            rows,
-            class = "analysis-wrapper"
-        )
-        
-    })
-    
-    
-    
-    # Analyses selection ----------------------
-    
-    # output$ui_analyses = renderUI({
-    #     req(rv$data)
-    #     choices = rv$data$analysisId %>% set_names(rv$data$analysisName)
-    #     selectInput(inputId = "analysisSelected", label = "Select a saved analysis", choices = choices, width = 150)
-    # })
-    
+    # Selected Analysis ----
     observe({
-        
         if (!is.na(rv$selected_analysis)) {
             removeModal()
             updateTabsetPanel(inputId = "tab", selected = "inputs")
         }
-        
     }) %>%
         bindEvent(rv$selected_analysis, ignoreInit = TRUE)
+    
+    # Title
+    output$ui_title <- renderUI({
+        
+        x <- filter(rv$data, analysisId == rv$selected_analysis)
+        
+        div(
+            div(
+                x$analysisName,
+                class = "analysis-title"
+            ),
+            div(
+                paste0(
+                    x$analysisId, " - ",
+                    format(x$analysisDate, "%b %d, %Y")
+                ),
+                class = "analysis-subtitle"
+            )
+        )
+        
+    })
     
     
     
@@ -257,6 +177,7 @@ server = function(input, output, session) {
         req(rv$data, rv$selected_analysis)
         
         l <- filter(rv$data, analysisId == rv$selected_analysis)
+        # l <- head(rv$data, 1)
         
         inputs <- div(
             
@@ -666,7 +587,7 @@ server = function(input, output, session) {
                 
             ),
             
-            style = "display: flex; justify-content: center"
+            style = "display: flex; justify-content: center; flex-wrap: wrap"
             
         ) # end Inputs
         
@@ -677,12 +598,12 @@ server = function(input, output, session) {
     
     
     
-    # Save inputs ----------------------------------------------------------------
+    # Analyses ----------------------------------------------------------------
     
     # Add tab button
     insertUI(
         selector = "#tab li:last-child", 
-        where = "afterEnd", 
+        where = "beforeBegin", 
         ui = tags$li(
             tags$a(
                 id = "analyses",
@@ -696,7 +617,114 @@ server = function(input, output, session) {
     # Add event to tab button
     onclick(id = "analyses", {rv$trigger_analysis <- Sys.time()})
     
-    # Show analysis library modal
+    
+    
+    ## Library ----
+    output$ui_analysis_library <- renderUI({
+        
+        headers <- div(
+            div("#", style = "width: 3em; color: #b0b0b0"),
+            div("NAME", style = "width: 15em"),
+            div("DATE", style = "width: 13em"),
+            div("DSC", style = "width: 5em"),
+            div("NOI", style = "width: 5em"),
+            div("PNI", style = "width: 5em"),
+            div("CF", style = "width: 5em"),
+            div("ER", style = "width: 5em"),
+            div("", style = "width: 3em"),
+            div("", style = "width: 3em"),
+            class = "analysis-headers"
+        )
+        
+        rows <- rv$data %>%
+            mutate(analysisId = fct_reorder(analysisId, analysisDate, .desc = TRUE)) %>%
+            split(.$analysisId) %>%
+            map(function(x) {
+                
+                preview <- run_analysis(x)
+                
+                id_row <- paste0("a_row", x$analysisId)
+                onclick(id_row, {rv$row_analysis <- x$analysisName})
+                
+                id_load <- paste0("a_load_", x$analysisId)
+                onclick(id_load, {rv$selected_analysis <- x$analysisId})
+                
+                id_delete <- paste0("a_delete_", x$analysisId)
+                onclick(id_delete, {rv$delete_analysis <- x$analysisId})
+                
+                div(
+                    id = id_row,
+                    div(
+                        x$analysisId, 
+                        style = "width: 3em; color: #b0b0b0"
+                    ),
+                    div(
+                        x$analysisName, 
+                        style = "width: 15em"
+                    ),
+                    div(
+                        format(x$analysisDate, "%b %d, %Y %R %Z"), 
+                        style = "width: 13em"
+                    ),
+                    div(
+                        round(preview$dsc, 2), 
+                        style = "width: 5em"
+                    ),
+                    div(
+                        dollar(preview$noi, accuracy = 1), 
+                        style = "width: 5em"
+                    ),
+                    div(
+                        dollar(preview$pni, accuracy = 1), 
+                        style = "width: 5em"
+                    ),
+                    div(
+                        dollar(preview$cash_flow, accuracy = 1), 
+                        style = "width: 5em"
+                    ),
+                    div(
+                        percent(preview$equity_return, accuracy = 0.1), 
+                        style = "width: 5em"
+                    ),
+                    div(
+                        actionButton(
+                            inputId = id_load, 
+                            label = NULL, 
+                            icon = icon("folder-open"),
+                            class = "btn-info"
+                        ), 
+                        style = "width: 3em"
+                    ),
+                    div(
+                        actionButton(
+                            inputId = id_delete, 
+                            label = NULL, 
+                            icon = icon("times"),
+                            class = "btn-danger"
+                        ), 
+                        style = "width: 3em"
+                    ),
+                    class = "analysis-row"
+                )
+                
+            })
+        
+        div(
+            headers,
+            div(rows, class = "analysis-rows"),
+            class = "analysis-container"
+        )
+        
+    })
+    
+    observe({
+        if (!is.na(rv$row_analysis)) updateTextInput(inputId = "analysisName", value = rv$row_analysis)
+    }) %>%
+        bindEvent(rv$row_analysis, ignoreInit = TRUE)
+    
+    
+    
+    ## Modal ----
     observe({
         
         showModal(modalDialog(
@@ -704,17 +732,28 @@ server = function(input, output, session) {
             div(
                 id = "div_saveInputs",
                 div(
+                    div(
+                        div(
+                            textInput(
+                                inputId = "analysisName", 
+                                label = NULL,
+                                width = "15em", 
+                                placeholder = "Save current analysis"
+                            ),
+                            style = "text-align: left; margin: 0"
+                        ),
+                        div(
+                            actionButton(
+                                inputId = "b_saveInputs", 
+                                label = NULL, 
+                                icon = icon("plus"), 
+                                class = "btn-info", 
+                                style = "margin-left: 3px; height: 3em; width: 3em"
+                            )
+                        ),
+                        class = "analysis-new"
+                    ),
                     uiOutput(outputId = "ui_analysis_library"),
-                    div(
-                        uiOutput(outputId = "ui_analyses"),
-                        div(actionButton(inputId = "b_editAnalysis", label = "", icon = icon("edit"), class = "btn-info"), style = "margin-left: 3px; padding-top: 22px"),
-                        style = "display: flex; justify-content: center"
-                    ),
-                    div(
-                        div(textInput(inputId = "analysisName", label = NULL, width = "150px", placeholder = "Save new analysis")),
-                        div(actionButton(inputId = "b_saveInputs", label = "", icon = icon("plus"), class = "btn-success"), style = "margin-left: 3px"),
-                        style = "display: flex; justify-content: center"
-                    ),
                     style = "width: 100%"
                 ),
                 style = "display: flex; justify-content: center; margin-top: 10px"
@@ -725,6 +764,9 @@ server = function(input, output, session) {
         
     }) %>%
         bindEvent(rv$trigger_analysis, ignoreInit = TRUE)
+    
+    
+    
     
     lInputs = reactive({
         input$b_saveInputs # trigger check for changes from default inputs
@@ -761,30 +803,84 @@ server = function(input, output, session) {
         )
     })
     
-    # observeEvent(lInputs(), {
-    #    if (identical(x = lInputs(), y = l)) 
-    #       hide(id = "div_saveInputs", anim = TRUE) 
-    #    else 
-    #       shinyjs::show(id = "div_saveInputs",anim = TRUE)
-    # })
+    
+    ## Save Analysis ----
+    
+    observe({
+        if (trimws(input$analysisName) == "" | is.na(input$analysisName)) {
+            disable(id = "b_saveInputs")
+        } else {
+            enable(id = "b_saveInputs")
+        }
+    }) %>%
+        bindEvent(input$analysisName)
+    
+    observe({
+        
+        # Overwrite check
+        if (input$analysisName %in% rv$data$analysisName) {
+            
+            showModal(modalDialog(
+                title = "Analysis already exists",
+                div(
+                    div(
+                        "Do you want to overwrite ", 
+                        tags$b(input$analysisName), "?", 
+                        style = "text-align: center; margin-bottom: 15px"
+                    ),
+                    div(
+                        actionButton(inputId = "b_overwrite_confirm", label = "Yes", width = "45%", class = "btn-danger"),
+                        actionButton(inputId = "b_overwrite_cancel", label = "No", width = "45%"),
+                        style = "display: flex; justify-content: space-around"
+                    )
+                ), 
+                footer = NULL, 
+                size = "m", 
+                easyClose = FALSE
+            ))
+            
+        } else {
+            
+            withProgress({
+                
+                d = c(
+                    analysisId = max(as.numeric(rv$data$analysisId)) + 1,
+                    analysisDate = Sys.time(),
+                    analysisName = input$analysisName,
+                    lInputs()
+                )
+                
+                if (trimws(d$analysisName) == "" | is.na(d$analysisName)) {
+                    d$analysisName = paste0("analysis", d$analysisId)
+                }
+                
+                path = paste0("data/analysis", d$analysisId, ".RData")
+                saveRDS(object = d, file = path)
+                rv$data = getAnalyses()
+                
+                updateTextInput(session = session, inputId = "analysisName", value = "")
+                
+            }, message = "Saving new analysis")
+            
+        }
+        
+    }) %>%
+        bindEvent(input$b_saveInputs)
     
     
-    # Save a new analysis
+    ### Overwrite Analysis ----
     
+    # Confirm overwrite
     observe({
         
         withProgress({
             
             d = c(
-                analysisId = max(as.numeric(rv$data$analysisId)) + 1,
+                analysisId = rv$selected_analysis,
                 analysisDate = Sys.time(),
                 analysisName = input$analysisName,
                 lInputs()
             )
-            
-            if (trimws(d$analysisName) == "" | is.na(d$analysisName)) {
-                d$analysisName = paste0("analysis", d$analysisId)
-            }
             
             path = paste0("data/analysis", d$analysisId, ".RData")
             saveRDS(object = d, file = path)
@@ -792,66 +888,108 @@ server = function(input, output, session) {
             
             updateTextInput(session = session, inputId = "analysisName", value = "")
             
-        }, message = "Saving new analysis")
+        }, message = "Overwriting analysis")
+        
+        removeModal()
         
     }) %>%
-        bindEvent(input$b_saveInputs)
+        bindEvent(input$b_overwrite_confirm)
     
     
-    # Edit existing analysis ----------------------------
+    # Cancel overwrite
+    observe({
+        removeModal()
+    }) %>% 
+        bindEvent(input$b_overwrite_cancel)
     
-    observeEvent(input$b_editAnalysis, {
-        withProgress({
-            # d = c(
-            #     analysisId = as.character(input$analysisSelected),
-            #     analysisDate = Sys.time(),
-            #     analysisName = rv$data$analysisName[rv$data$analysisId == input$analysisSelected],
-            #     lInputs()
-            # )
-            d = c(
-                analysisId = as.character(rv$selected_analysis),
-                analysisDate = Sys.time(),
-                analysisName = rv$data$analysisName[rv$data$analysisId == rv$selected_analysis],
-                lInputs()
-            )
+    
+    
+    ## Delete Analysis ----
+    
+    observe({
+        
+        if (!is.na(rv$delete_analysis)) {
             
-            if (trimws(d$analysisName) == "" | is.na(d$analysisName)) {
-                d$analysisName = paste0("analysis", d$analysisId)
-            }
+            analysis_name <- rv$data %>%
+                filter(analysisId == rv$delete_analysis) %>%
+                pull(analysisName)
             
-            path = paste0("data/analysis_", as.character(rv$selected_analysis), ".RData")
-            saveRDS(object = d, file = path)
-            rv$data = getAnalyses()
+            showModal(modalDialog(
+                title = "Delete Analysis",
+                div(
+                    div(
+                        "Do you want to delete ", 
+                        tags$b(analysis_name), "?", 
+                        style = "text-align: center; margin-bottom: 15px"
+                    ),
+                    div(
+                        actionButton(inputId = "b_delete_confirm", label = "Yes", width = "45%", class = "btn-danger"),
+                        actionButton(inputId = "b_delete_cancel", label = "No", width = "45%"),
+                        style = "display: flex; justify-content: space-around"
+                    )
+                ), 
+                footer = NULL, 
+                size = "m", 
+                easyClose = FALSE
+            ))
             
-            updateTextInput(session = session, inputId = "analysisName", value = "")
-            updateSelectInput(session = session, inputId = "analysisSelected", selected = d$analysisId)
-        }, message = "Editing analysis")
-    })
+        }
+        
+    }) %>%
+        bindEvent(rv$delete_analysis)
     
     
-    # # Delete existing analysis ----------------------------
-    # 
-    # observeEvent(input$b_editAnalysis, {
-    #    d = c(
-    #       analysisId = as.character(input$analysisSelected),
-    #       analysisDate = Sys.time(),
-    #       analysisName = input$analysisName,
-    #       lInputs()
-    #    )
-    #    
-    #    if (trimws(d$analysisName) == "" | is.na(d$analysisName)) {
-    #       d$analysisName = paste0("analysis", d$analysisId)
-    #    }
-    #    
-    #    path = paste0("data/analysis", as.character(input$analysisSelected), ".RData")
-    #    saveRDS(object = d, file = path)
-    #    rv$data = getAnalyses()
-    #    
-    #    updateSelectInput(session = session, inputId = "analysisSelected", selected = d$analysisId)
-    # })
+    # Cancel delete
+    
+    
+    observe({
+        removeModal()
+        rv$delete_analysis <- NA
+    }) %>%
+        bindEvent(input$b_delete_cancel)
+    
+    
+    # Confirm delete
+    observe({
+        
+        file <- paste0("analysis", rv$delete_analysis, ".RData")
+        from <- file.path("data", file)
+        to <- file.path("recycling_bin", file)
+        
+        # Don't overwrite recycled files
+        if (file.exists(to)) {
+            to <- file.path("recycling_bin", paste0("analysis", rv$delete_analysis, Sys.Date(), ".RData"))
+        }
+        
+        # Copy data to recycling bin and remove from data directory
+        if (file.exists(from)) {
+            file.copy(from = from, to = to, overwrite = FALSE)
+            file.remove(from)
+        }
+        
+        removeModal()
+        rv$delete_analysis <- NA
+        rv$data <- getAnalyses()
+        
+    }) %>%
+        bindEvent(input$b_delete_confirm)
     
     
     # Calculations -------------------------------------------------------------------
+    
+    # df_summary <- reactive({
+    #     req(lInputs(), input$nYears)
+    #     
+    #     inputs <- lInputs()
+    #     i[is.na(i)] = 0 # set blanks to zero
+    #     
+    #     1:input$nYears %>%
+    #         map(~as_tibble(run_analysis(inputs = inputs, year = .x))) %>%
+    #         bind_rows(.id = "year")
+    # })
+    
+    
+    
     
     calcMatrix = reactive({
         req(lInputs())
@@ -1133,6 +1271,7 @@ server = function(input, output, session) {
     
     # Output -----------------------------------------------------------------------------
     
+    ## Summary ----
     output$ui_summaryData = renderUI({
         pni = calcMatrix()[[1]][["cashFlow"]][["principalInterest"]]
         dep = calcMatrix()[[1]][["taxBenefit"]][["annualDepreciation"]]
@@ -1231,40 +1370,39 @@ server = function(input, output, session) {
     })
     
     
-    # Annual Operating Income
-    
-    output$ui_annualOperatingIncome = renderUI({
-        cells = calcMatrix() %>%
+    ## Annual Operating Income ----
+    output$ui_annualOperatingIncome <- renderUI({
+        
+        cells <- calcMatrix() %>%
             map(function(y) {
                 div(
                     div("YEAR ", y$year, style = "color: #b0b0b0"),
                     div(clean(y$annualOperatingIncome$xGrossIncome)),
                     div(clean(y$annualOperatingIncome$loss)),
                     div(clean(y$annualOperatingIncome$grossIncome), style = "font-weight: bold"),
-                    style = "text-align: right; align-self: flex-end; min-width: 75px"
+                    class = "analysis-table-cells"
                 ) 
             })
+        
         div(
             div(
-                div(
-                    div("ANNUAL OPERATING INCOME", style = "color: #b0b0b0"),
-                    div("EXPECTED GROSS INCOME"),
-                    div("VACANCY/COLLECTION LOSSES"),
-                    div("EFFECTIVE GROSS INCOME", style = "font-weight: bold"),
-                    style = "min-width: 225px"
-                ),
-                cells, 
-                style = "display: flex"
+                div("ANNUAL OPERATING INCOME", style = "color: #b0b0b0"),
+                div("EXPECTED GROSS INCOME"),
+                div("VACANCY/COLLECTION LOSSES"),
+                div("EFFECTIVE GROSS INCOME", style = "font-weight: bold"),
+                class = "analysis-table-headers"
             ),
-            style = "margin-bottom: 15px"
+            cells, 
+            class = "analysis-table"
         )
+        
     })
     
     
-    # Annual Operating Expenses
-    
-    output$ui_annualOperatingExpenses = renderUI({
-        cells = calcMatrix() %>%
+    ## Annual Operating Expenses ----
+    output$ui_annualOperatingExpenses <- renderUI({
+        
+        cells <- calcMatrix() %>%
             map(function(y) {
                 div(
                     div("YEAR ", y$year, style = "color: #b0b0b0"),
@@ -1281,100 +1419,97 @@ server = function(input, output, session) {
                     div(clean(y$annualOperatingExpenses$other)),
                     div(clean(y$annualOperatingExpenses$operatingExpenses), style = "font-weight: bold"),
                     div(clean(y$annualOperatingExpenses$expenseIncomeRatio * 100, digits = 3, suffix = "%"), style = "font-weight: bold"),
-                    style = "text-align: right; align-self: flex-end; min-width: 75px"
+                    class = "analysis-table-cells"
                 ) 
             })
+        
         div(
             div(
-                div(
-                    div("ANNUAL OPERATING EXPENSES", style = "color: #b0b0b0"),
-                    div("PROPERTY TAXES"),
-                    div("INSURANCE"),
-                    div("ELECTRICITY"),
-                    div("GAS"),
-                    div("OIL"),
-                    div("WATER"),
-                    div("MANAGEMENT"),
-                    div("MAINTENANCE"),
-                    div("ADVERTISING"),
-                    div("TELEPHONE"),
-                    div("OTHER"),
-                    div("OPERATING EXPENSES", style = "font-weight: bold"),
-                    div("EXPENSE-INCOME RATIO", style = "font-weight: bold"),
-                    style = "min-width: 225px"
-                ),
-                cells, 
-                style = "display: flex"
+                div("ANNUAL OPERATING EXPENSES", style = "color: #b0b0b0"),
+                div("PROPERTY TAXES"),
+                div("INSURANCE"),
+                div("ELECTRICITY"),
+                div("GAS"),
+                div("OIL"),
+                div("WATER"),
+                div("MANAGEMENT"),
+                div("MAINTENANCE"),
+                div("ADVERTISING"),
+                div("TELEPHONE"),
+                div("OTHER"),
+                div("OPERATING EXPENSES", style = "font-weight: bold"),
+                div("EXPENSE-INCOME RATIO", style = "font-weight: bold"),
+                class = "analysis-table-headers"
             ),
-            style = "margin-bottom: 15px"
+            cells, 
+            class = "analysis-table"
         )
+        
     })
     
     
-    # Cash flow (before taxes)
-    
-    output$ui_cashFlow = renderUI({
-        cells = calcMatrix() %>%
+    ## Cash flow (before taxes) ----
+    output$ui_cashFlow <- renderUI({
+        
+        cells <- calcMatrix() %>%
             map(function(y) {
                 div(
                     div("YEAR ", y$year, style = "color: #b0b0b0"),
                     div(clean(y$cashFlow$netOperatingIncome)),
                     div(clean(y$cashFlow$principalInterest)),
                     div(clean(y$cashFlow$cashFlow), style = "font-weight: bold"),
-                    style = "text-align: right; align-self: flex-end; min-width: 75px"
+                    class = "analysis-table-cells"
                 ) 
             })
+        
         div(
             div(
-                div(
-                    div("CASH FLOW (PRE-TAX)", style = "color: #b0b0b0"),
-                    div("NET OPERATING INCOME"),
-                    div("P&I"),
-                    div("CASH FLOW", style = "font-weight: bold"),
-                    style = "min-width: 225px"
-                ),
-                cells, 
-                style = "display: flex"
+                div("CASH FLOW (PRE-TAX)", style = "color: #b0b0b0"),
+                div("NET OPERATING INCOME"),
+                div("P&I"),
+                div("CASH FLOW", style = "font-weight: bold"),
+                class = "analysis-table-headers"
             ),
-            style = "margin-bottom: 15px"
+            cells, 
+            class = "analysis-table"
         )
+        
     })
     
     
-    # Principal Reduction
-    
-    output$ui_principalReduction = renderUI({
-        cells = calcMatrix() %>%
+    ## Principal Reduction ----
+    output$ui_principalReduction <- renderUI({
+        
+        cells <- calcMatrix() %>%
             map(function(y) {
                 div(
                     div("YEAR ", y$year, style = "color: #b0b0b0"),
                     div(clean(y$principalReduction$startBalance)),
                     div(clean(y$principalReduction$endBalance)),
                     div(clean(y$principalReduction$principalReduction), style = "font-weight: bold"),
-                    style = "text-align: right; align-self: flex-end; min-width: 75px"
+                    class = "analysis-table-cells"
                 ) 
             })
+        
         div(
             div(
-                div(
-                    div("MORTGAGE PRINCIPAL REDUCTION", style = "color: #b0b0b0"),
-                    div("STARTING BALANCE"),
-                    div("ENDING BALANCE"),
-                    div("PRINCIPAL REDUCTION", style = "font-weight: bold"),
-                    style = "min-width: 225px"
-                ),
-                cells, 
-                style = "display: flex"
+                div("MORTGAGE PRINCIPAL REDUCTION", style = "color: #b0b0b0"),
+                div("STARTING BALANCE"),
+                div("ENDING BALANCE"),
+                div("PRINCIPAL REDUCTION", style = "font-weight: bold"),
+                class = "analysis-table-headers"
             ),
-            style = "margin-bottom: 15px"
+            cells, 
+            class = "analysis-table"
         )
+        
     })
     
     
-    # Tax Benefit
-    
-    output$ui_taxBenefit = renderUI({
-        cells = calcMatrix() %>%
+    ## Tax Benefit ----
+    output$ui_taxBenefit <- renderUI({
+        
+        cells <- calcMatrix() %>%
             map(function(y) {
                 div(
                     div("YEAR ", y$year, style = "color: #b0b0b0"),
@@ -1383,62 +1518,60 @@ server = function(input, output, session) {
                     div(clean(y$taxBenefit$annualDepreciation)),
                     div(clean(y$taxBenefit$taxableIncome)),
                     div(clean(y$taxBenefit$taxBenefit), style = "font-weight: bold"),
-                    style = "text-align: right; align-self: flex-end; min-width: 75px"
+                    class = "analysis-table-cells"
                 ) 
             })
+        
         div(
             div(
-                div(
-                    div("TAX BENEFIT", style = "color: #b0b0b0"),
-                    div("NET OPERATING INCOME"),
-                    div("ANNUAL INTEREST"),
-                    div("ANNUAL DEPRECIATION"),
-                    div("TAXABLE INCOME"),
-                    div("TAX BENEFIT", style = "font-weight: bold"),
-                    style = "min-width: 225px"
-                ),
-                cells, 
-                style = "display: flex"
+                div("TAX BENEFIT", style = "color: #b0b0b0"),
+                div("NET OPERATING INCOME"),
+                div("ANNUAL INTEREST"),
+                div("ANNUAL DEPRECIATION"),
+                div("TAXABLE INCOME"),
+                div("TAX BENEFIT", style = "font-weight: bold"),
+                class = "analysis-table-headers"
             ),
-            style = "margin-bottom: 15px"
+            cells, 
+            class = "analysis-table"
         )
+        
     })
     
     
-    # Property Appreciation
-    
-    output$ui_propertyAppreciation = renderUI({
-        cells = calcMatrix() %>%
+    ## Property Appreciation ----
+    output$ui_propertyAppreciation <- renderUI({
+        
+        cells <- calcMatrix() %>%
             map(function(y) {
                 div(
                     div("YEAR ", y$year, style = "color: #b0b0b0"),
                     div(clean(y$propertyAppreciation$startValue)),
                     div(clean(y$propertyAppreciation$endValue)),
                     div(clean(y$propertyAppreciation$annualAppreciation), style = "font-weight: bold"),
-                    style = "text-align: right; align-self: flex-end; min-width: 75px"
+                    class = "analysis-table-cells"
                 ) 
             })
+        
         div(
             div(
-                div(
-                    div("PROPERTY APPRECIATION", style = "color: #b0b0b0"),
-                    div("START OF YEAR VALUE"),
-                    div("END OF YEAR VALUE"),
-                    div("ANNUAL APPRECIATION", style = "font-weight: bold"),
-                    style = "min-width: 225px"
-                ),
-                cells, 
-                style = "display: flex"
+                div("PROPERTY APPRECIATION", style = "color: #b0b0b0"),
+                div("START OF YEAR VALUE"),
+                div("END OF YEAR VALUE"),
+                div("ANNUAL APPRECIATION", style = "font-weight: bold"),
+                class = "analysis-table-headers"
             ),
-            style = "margin-bottom: 15px"
+            cells, 
+            class = "analysis-table"
         )
+        
     })
     
     
-    # Return on Equity
-    
-    output$ui_equityReturnInitial = renderUI({
-        cells = calcMatrix() %>%
+    ## Return on Equity ----
+    output$ui_equityReturnInitial <- renderUI({
+        
+        cells <- calcMatrix() %>%
             map(function(y) {
                 div(
                     div("YEAR ", y$year, style = "color: #b0b0b0"),
@@ -1448,30 +1581,30 @@ server = function(input, output, session) {
                     div(clean(y$propertyAppreciation$annualAppreciation)),
                     div(clean(y$equityReturn$initEquityReturn), style = "font-weight: bold"),
                     div(clean(y$equityReturn$initEquityReturnRatio * 100, digits = 3, suffix = "%"), style = "font-weight: bold"),
-                    style = "text-align: right; align-self: flex-end; min-width: 75px"
+                    class = "analysis-table-cells"
                 ) 
             })
+        
         div(
             div(
-                div(
-                    div("RETURN ON INITIAL EQUITY", style = "color: #b0b0b0"),
-                    div("CASH FLOW"),
-                    div("TAX BENEFIT"),
-                    div("DEBT REDUCTION"),
-                    div("ANNUAL APPRECIATION"),
-                    div("RETURN ON INITIAL EQUITY", style = "font-weight: bold"),
-                    br(),
-                    style = "min-width: 225px"
-                ),
-                cells, 
-                style = "display: flex"
+                div("RETURN ON INITIAL EQUITY", style = "color: #b0b0b0"),
+                div("CASH FLOW"),
+                div("TAX BENEFIT"),
+                div("DEBT REDUCTION"),
+                div("ANNUAL APPRECIATION"),
+                div("RETURN ON INITIAL EQUITY", style = "font-weight: bold"),
+                br(),
+                class = "analysis-table-headers"
             ),
-            style = "margin-bottom: 15px"
+            cells, 
+            class = "analysis-table"
         )
+        
     })
     
-    output$ui_equityReturnTotal = renderUI({
-        cells = calcMatrix() %>%
+    output$ui_equityReturnTotal <- renderUI({
+        
+        cells <- calcMatrix() %>%
             map(function(y) {
                 div(
                     div("YEAR ", y$year, style = "color: #b0b0b0"),
@@ -1479,31 +1612,30 @@ server = function(input, output, session) {
                     div(clean(y$principalReduction$startBalance)),
                     div(clean(y$equityReturn$totalEquity), style = "font-weight: bold"),
                     div(clean(y$equityReturn$totalEquityReturn * 100, digits = 3, suffix = "%"), style = "font-weight: bold"),
-                    style = "text-align: right; align-self: flex-end; min-width: 75px"
+                    class = "analysis-table-cells"
                 ) 
             })
+        
         div(
             div(
-                div(
-                    div("RETURN ON TOTAL EQUITY", style = "color: #b0b0b0"),
-                    div("START OF YEAR VALUE"),
-                    div("START OF YEAR BALANCE"),
-                    div("TOTAL EQUITY", style = "font-weight: bold"),
-                    div("TOTAL EQUITY RETURN", style = "font-weight: bold"),
-                    style = "min-width: 225px"
-                ),
-                cells, 
-                style = "display: flex"
+                div("RETURN ON TOTAL EQUITY", style = "color: #b0b0b0"),
+                div("START OF YEAR VALUE"),
+                div("START OF YEAR BALANCE"),
+                div("TOTAL EQUITY", style = "font-weight: bold"),
+                div("TOTAL EQUITY RETURN", style = "font-weight: bold"),
+                class = "analysis-table-headers"
             ),
-            style = "margin-bottom: 15px"
+            cells, 
+            class = "analysis-table"
         )
+        
     })
     
     
-    # Adjusted Cost Basis
-    
-    output$ui_adjCostBasis = renderUI({
-        cells = calcMatrix() %>%
+    ## Adjusted Cost Basis ----
+    output$ui_adjCostBasis <- renderUI({
+        
+        cells <- calcMatrix() %>%
             map(function(y) {
                 div(
                     div("YEAR ", y$year, style = "color: #b0b0b0"),
@@ -1511,31 +1643,30 @@ server = function(input, output, session) {
                     div(clean(y$adjCostBasis$salesCosts)),
                     div(clean(y$adjCostBasis$cumulativeDepreciation)),
                     div(clean(y$adjCostBasis$adjustedCostBasis), style = "font-weight: bold"),
-                    style = "text-align: right; align-self: flex-end; min-width: 75px"
+                    class = "analysis-table-cells"
                 ) 
             })
+        
         div(
             div(
-                div(
-                    div("ADJUSTED COST BASIS", style = "color: #b0b0b0"),
-                    div("ORIGINAL BASIS"),
-                    div("SALES COSTS"),
-                    div("CUMULATIVE DEPRECIATION"),
-                    div("ADJUSTED COST BASIS", style = "font-weight: bold"),
-                    style = "min-width: 225px"
-                ),
-                cells, 
-                style = "display: flex"
+                div("ADJUSTED COST BASIS", style = "color: #b0b0b0"),
+                div("ORIGINAL BASIS"),
+                div("SALES COSTS"),
+                div("CUMULATIVE DEPRECIATION"),
+                div("ADJUSTED COST BASIS", style = "font-weight: bold"),
+                class = "analysis-table-headers"
             ),
-            style = "margin-bottom: 15px"
+            cells, 
+            class = "analysis-table"
         )
+        
     })
     
     
-    # Capital Gain
-    
-    output$ui_capitalGain = renderUI({
-        cells = calcMatrix() %>%
+    ## Capital Gain ----
+    output$ui_capitalGain <- renderUI({
+        
+        cells <- calcMatrix() %>%
             map(function(y) {
                 div(
                     div("YEAR ", y$year, style = "color: #b0b0b0"),
@@ -1545,92 +1676,124 @@ server = function(input, output, session) {
                     div(clean(y$adjCostBasis$adjustedCostBasis)),
                     div(clean(y$capitalGain$capitalGain), style = "font-weight: bold"),
                     div(clean(y$capitalGain$capitalGainTax), style = "font-weight: bold"),
-                    style = "text-align: right; align-self: flex-end; min-width: 75px"
+                    class = "analysis-table-cells"
                 ) 
             })
+        
         div(
             div(
-                div(
-                    div("CAPITAL GAIN", style = "color: #b0b0b0"),
-                    div("SALES PRICE"),
-                    div("NON-ADJUSTED COST"),
-                    div("TRUE GAIN/LOSS", style = "font-weight: bold"),
-                    div("ADJUSTED COST BASIS"),
-                    div("CAPITAL GAIN", style = "font-weight: bold"),
-                    div("CAPITAL GAIN TAX", style = "font-weight: bold"),
-                    style = "min-width: 225px"
-                ),
-                cells, 
-                style = "display: flex"
+                div("CAPITAL GAIN", style = "color: #b0b0b0"),
+                div("SALES PRICE"),
+                div("NON-ADJUSTED COST"),
+                div("TRUE GAIN/LOSS", style = "font-weight: bold"),
+                div("ADJUSTED COST BASIS"),
+                div("CAPITAL GAIN", style = "font-weight: bold"),
+                div("CAPITAL GAIN TAX", style = "font-weight: bold"),
+                class = "analysis-table-headers"
             ),
-            style = "margin-bottom: 15px"
+            cells, 
+            class = "analysis-table"
         )
+        
     })
     
     
-    # Est. Net Sale Proceeds
-    
-    output$ui_saleProceeds = renderUI({
-        cells = calcMatrix() %>%
+    ## Est. Net Sale Proceeds ----
+    output$ui_saleProceeds <- renderUI({
+        
+        cells <- calcMatrix() %>%
             map(function(y) {
                 div(
                     div("YEAR ", y$year, style = "color: #b0b0b0"),
                     div(clean(y$propertyAppreciation$endValue)),
                     div(clean(y$principalReduction$endBalance)),
                     div(clean(y$saleProceeds$proceedsBeforeTax), style = "font-weight: bold"),
-                    div(clean(y$capitalGain$capitalGainTax)), # capital gain tax not calculating correctly --------
+                    div(clean(y$capitalGain$capitalGainTax)), # FIXME capital gain tax not calculating correctly 
                     div(clean(y$saleProceeds$netSaleProceeds), style = "font-weight: bold"),
-                    style = "text-align: right; align-self: flex-end; min-width: 75px"
+                    class = "analysis-table-cells"
                 ) 
             })
+        
         div(
             div(
-                div(
-                    div("EST. NET SALE PROCEEDS", style = "color: #b0b0b0"),
-                    div("SALES PRICE"),
-                    div("LOAN BALANCE"),
-                    div("SALE PROCEEDS (PRE-TAX)", style = "font-weight: bold"),
-                    div("CAPITAL GAIN TAX"),
-                    div("NET SALE PROCEEDS", style = "font-weight: bold"),
-                    style = "min-width: 225px"
-                ),
-                cells, 
-                style = "display: flex"
+                div("EST. NET SALE PROCEEDS", style = "color: #b0b0b0"),
+                div("SALES PRICE"),
+                div("LOAN BALANCE"),
+                div("SALE PROCEEDS (PRE-TAX)", style = "font-weight: bold"),
+                div("CAPITAL GAIN TAX"),
+                div("NET SALE PROCEEDS", style = "font-weight: bold"),
+                class = "analysis-table-headers"
             ),
-            style = "margin-bottom: 15px"
+            cells, 
+            class = "analysis-table"
         )
+        
     })
     
     
-    # Debt Service Coverage
-    
-    output$ui_dsc = renderUI({
-        cells = calcMatrix() %>%
+    ## Debt Service Coverage ----
+    output$ui_dsc <- renderUI({
+        
+        cells <- calcMatrix() %>%
             map(function(y) {
                 div(
                     div("YEAR ", y$year, style = "color: #b0b0b0"),
                     div(clean(y$cashFlow$netOperatingIncome)),
                     div(clean(y$cashFlow$principalInterest)),
                     div(clean(y$debtServiceCoverage$dsc, digits = 3), style = "font-weight: bold"),
-                    style = "text-align: right; align-self: flex-end; min-width: 75px"
+                    class = "analysis-table-cells"
                 ) 
             })
+        
         div(
             div(
-                div(
-                    div("DEBT SERVICE COVERAGE", style = "color: #b0b0b0"),
-                    div("NET OPERATING INCOME"),
-                    div("P&I"),
-                    div("DSC RATIO", style = "font-weight: bold"),
-                    style = "min-width: 225px"
-                ),
-                cells, 
-                style = "display: flex"
+                div("DEBT SERVICE COVERAGE", style = "color: #b0b0b0"),
+                div("NET OPERATING INCOME"),
+                div("P&I"),
+                div("DSC RATIO", style = "font-weight: bold"),
+                class = "analysis-table-headers"
             ),
-            style = "margin-bottom: 15px"
+            cells, 
+            class = "analysis-table"
         )
+        
     })
     
+    
+    
+    # Settings -------------------
+    
+    # Update font size
+    font_size <- reactive({
+        input$font_size
+    }) %>%
+        debounce(1000)
+    
+    observe({
+        
+        if (is.numeric(input$font_size)) {
+            if (input$font_size >= 10 & input$font_size <= 24) {
+                runjs(paste0("document.body.style.fontSize = '", input$font_size, "px'"))
+            }
+        }
+        
+    }) %>%
+        bindEvent(input$font_size)
+    
+    
+    # Last Analysis
+    
+    onStop(function() {
+        
+        isolate({
+            if (!is.na(rv$selected_analysis)) {
+                if (rv$selected_analysis %in% rv$data$analysisId) {
+                    saveRDS(object = rv$selected_analysis, file = "last_analysis.rds")
+                }
+            }
+        })
+        
+    })
     
     
     
